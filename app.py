@@ -8,12 +8,12 @@ import os
 
 st.set_page_config(layout="wide")
 
-# カスタムCSS（MSPゴシック + フォント設定）
+# カスタムフォントCSS（MS UI Gothic）
 font_path = os.path.join("static", "MS-UIGothic.woff2")
 if os.path.exists(font_path):
     with open(font_path, "rb") as f:
         font_data = f.read()
-        font_base64 = font_data.encode("base64").decode("utf-8") if hasattr(font_data, "encode") else font_data.encode("base64")
+        font_base64 = base64.b64encode(font_data).decode("utf-8")
 
     font_css = f"""
     <style>
@@ -50,11 +50,10 @@ if os.path.exists(font_path):
 else:
     st.warning("フォントが見つかりません。static/MS-UIGothic.woff2 を確認してください。")
 
-st.title("やる夫スレ AAビューア")
+st.title("AA Viewer")
 
-url = st.text_input("AAスレのURLを入力してください：")
+url = st.text_input("AAページのURLを入力してください（http:// または https://）", "")
 
-# 読み込みを試みるのは「ボタンが押されたとき」かつ「URLが有効なとき」
 if url:
     if st.button("読み込む"):
         try:
