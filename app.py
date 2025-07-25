@@ -9,7 +9,7 @@ import os
 st.set_page_config(layout="wide")
 
 # カスタムCSS（MSPゴシック + フォント設定）
-font_path = os.path.join("static", "MS-PGothic.woff2")
+font_path = os.path.join("static", "MS-UIGothic.woff2")
 if os.path.exists(font_path):
     with open(font_path, "rb") as f:
         font_data = f.read()
@@ -48,7 +48,7 @@ if os.path.exists(font_path):
     """
     st.markdown(font_css, unsafe_allow_html=True)
 else:
-    st.warning("フォントが見つかりません。static/MS-PGothic.woff2 を確認してください。")
+    st.warning("フォントが見つかりません。static/MS-UIGothic.woff2 を確認してください。")
 
 st.title("やる夫スレ AAビューア")
 
