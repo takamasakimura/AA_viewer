@@ -28,8 +28,11 @@ components.html(f"""
 <head>
 <style>
 @font-face {{
-  font-family: 'AAFont';
-  src: url(data:font/woff2;charset=utf-8;base64,AAEAA...) format('woff2');
+    font-family: 'AAFont';
+    src: url(data:font/woff2;charset=utf-8;base64,{woff2_base64}) format('woff2');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
 }}
 body {{
   background-color: #fdfdfd;
