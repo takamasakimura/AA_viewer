@@ -32,39 +32,21 @@ components.html(f"""
 <head>
 <style>
 @font-face {{
-  font-family: 'MSPGothic';
-  src: url("{font_path}") format('woff2');
+  font-family: 'AAFont';
+  src: url(data:font/woff2;base64,{woff2_base64}) format('woff2');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
 }}
-
-body {{
-    background-color: #fdfdfd;
-    padding: 20px;
-}}
-
 pre {{
-    font-family: 'MSPGothic', monospace;
-    font-size: 15px;
-    line-height: 1.1;
-    white-space: pre;
-    overflow-x: auto;
-    background-color: #f9f9f9;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    padding: 10px;
-    color: black;
+  font-family: 'AAFont', monospace;
+  font-size: 15px;
+  ...
 }}
 </style>
 </head>
 <body>
-<pre>
-012345678901234567890123456789
-■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
-
-{full_text}
-</pre>
+<pre>{full_text}</pre>
 </body>
 </html>
-""", height=2600, scrolling=True)
+""", height=2400, scrolling=True)
