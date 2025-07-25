@@ -27,21 +27,25 @@ components.html(f"""
 <html>
 <head>
 <style>
+@font-face {{
+  font-family: 'AAFont';
+  src: url(data:font/woff2;charset=utf-8;base64,AAEAA...) format('woff2');
+}}
 body {{
-    background-color: #fdfdfd;
-    padding: 20px;
+  background-color: #fdfdfd;
+  padding: 20px;
 }}
 pre {{
-    font-family: 'MS PGothic', 'MS Gothic', 'Osaka-mono', 'Courier New', Courier, monospace;
-    font-size: 15px;
-    line-height: 1.1;
-    white-space: pre;
-    overflow-x: auto;
-    background-color: #f9f9f9;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    padding: 10px;
-    color: black;
+  font-family: 'AAFont', monospace;
+  font-size: 15px;
+  line-height: 1.1;
+  white-space: pre;
+  overflow-x: auto;
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 10px;
+  color: black;
 }}
 </style>
 </head>
