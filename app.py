@@ -6,30 +6,36 @@ import streamlit.components.v1 as components
 import base64
 import os
 
-# ページ設定
 st.set_page_config(layout="wide")
 st.title("やる夫スレ AAビューア（MS UI Gothic強制）")
 
-# URL
 url = "http://yaruoshelter.com/yaruo001/kako/1542/15429/1542970809.html"
 st.write(f"読み込み対象URL：{url}")
 
-# HTML取得
 headers = {"User-Agent": "Mozilla/5.0"}
 response = requests.get(url, headers=headers, timeout=10)
 response.encoding = response.apparent_encoding
 soup = BeautifulSoup(response.text, "html.parser")
-dd_blocks = soup.find_all("dd")
-aa_blocks = [html.unescape(dd.get_text("\n")) for dd in dd_blocks]
-full_text = "\n\n".join(aa_blocks)
 
-# フォント読み込み → base64化
+# dat形式（<dt> = メタ情報, <dd> = 本文）
+dt_blocks = soup.find_all("dt")
+dd_blocks = soup.find_all("dd")
+
+posts = []
+for dt, dd in zip(dt_blocks, dd_blocks):
+    dt_text = dt.get_text(strip=True)
+    dd_text = html.unescape(dd.get_text("\n"))
+    color = "#000" if "◆" in dt_text else "#666"
+    post_html = f'<div style="color:{color}; margin-bottom:1em;"><strong>{dt_text}</strong><br><pre>{dd_text}</pre></div>'
+    posts.append(post_html)
+
+all_posts_html = "\n".join(posts)
+
 font_path = os.path.join("static", "MS-UIGothic.woff2")
 with open(font_path, "rb") as f:
     font_data = f.read()
     font_base64 = base64.b64encode(font_data).decode("utf-8")
 
-# 埋め込みHTML表示
 components.html(f"""
 <html>
 <head>
@@ -44,8 +50,8 @@ components.html(f"""
 }}
 body {{
     margin: 0;
-    padding: 5px; /* スマホ画面に合わせて最小限に */
-    box-sizing: border-box;
+    padding: 5px;
+    font-family: 'AAFont';
 }}
 pre {{
     font-family: 'AAFont';
@@ -57,12 +63,11 @@ pre {{
     border: 1px solid #ddd;
     border-radius: 6px;
     padding: 10px;
-    color: black;
 }}
 </style>
 </head>
 <body>
-<pre>{full_text}</pre>
+{all_posts_html}
 </body>
 </html>
-""", height=2400, scrolling=True)
+""", height=3000, scrolling=True)
