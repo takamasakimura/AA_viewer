@@ -54,13 +54,24 @@ st.title("AA Viewer")
 
 url = st.text_input("AAページのURLを入力してください（http:// または https://）", "")
 
-if url:
-    if st.button("読み込む"):
+# ボタンが押されたら処理開始（URLが空でないことも確認）
+if st.button("読み込む"):
+    if url.strip() == "":
+        st.warning("URLを入力してください。")
+    else:
         try:
+            # スキーム補完（http:// or https://）
+            def normalize_url(input_url: str) -> str:
+                if not re.match(r'^https?://', input_url):
+                    return 'http://' + input_url
+                return input_url
+
+            normalized_url = normalize_url(url)
+
             headers = {
                 "User-Agent": "Mozilla/5.0"
             }
-            response = requests.get(url, headers=headers, timeout=10)
+            response = requests.get(normalized_url, headers=headers, timeout=10)
             response.encoding = response.apparent_encoding
             soup = BeautifulSoup(response.text, "html.parser")
 
