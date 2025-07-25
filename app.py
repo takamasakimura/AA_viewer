@@ -28,9 +28,14 @@ components.html(f"""
 <html>
 <head>
 <style>
-@font-face {{
+@font-face {
   font-family: 'AAFont';
-  src: url(data:font/woff2;charset=utf-8;base64,{woff2_base64}) format('woff2');
+  src: url(data:font/woff2;charset=utf-8;base64,d09GMgABAAAAHgWMABIAAABFksgAHgUcAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP0ZGVE0cGowYBlYAhfBOCCgJgmEREAqB98dsgcWtKQuEtXgAATYCJAOEs04EIAWJeAeLwU8MgUkXJBiEojzL//8TPfA8uuV/QEgxCBA1GH+FsHWHziEm2f9tR6VQQLyXQ6Qi836zLAIOJXR7HJFDpaJ7SmxR2fzDQu79k822OaoURXSObVUsGCbyg95k//////////////////////8PSsdTv21mdv7M7r43s7ss/+AIAZU0wTANRUNRUYGUDvCo1LTjUrM8KjPLIystM80uM9MOJJpmOeQQonkBIaASC6iAVAKKu5BQNXSjJrSwkXm7I62eqsqgp9Xb15+VT2gIwaFqDgwsG...
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+format('woff2');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
