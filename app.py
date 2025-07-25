@@ -7,31 +7,81 @@ import base64
 import os
 
 st.set_page_config(layout="wide")
+
+# カスタムCSS（MSPゴシック + フォント設定）
+font_path = os.path.join("static", "MS-PGothic.woff2")
+if os.path.exists(font_path):
+    with open(font_path, "rb") as f:
+        font_data = f.read()
+        font_base64 = font_data.encode("base64").decode("utf-8") if hasattr(font_data, "encode") else font_data.encode("base64")
+
+    font_css = f"""
+    <style>
+    @font-face {{
+        font-family: 'AAFont';
+        src: url("data:font/woff2;base64,{font_base64}") format('woff2');
+        font-weight: normal;
+        font-style: normal;
+    }}
+
+    html, body, .stApp {{
+        font-family: 'AAFont', monospace;
+        font-size: 14px;
+        line-height: 1.4;
+        background-color: #fdfdfd;
+        overflow-x: auto;
+    }}
+
+    pre {{
+        white-space: pre;
+        overflow-x: auto;
+    }}
+
+    .gray {{
+        color: #666;
+    }}
+
+    .normal {{
+        color: black;
+    }}
+    </style>
+    """
+    st.markdown(font_css, unsafe_allow_html=True)
+else:
+    st.warning("フォントが見つかりません。static/MS-PGothic.woff2 を確認してください。")
+
 st.title("やる夫スレ AAビューア")
 
 url = st.text_input("AAスレのURLを入力してください：")
 
-# 「読み込む」ボタンが押されたとき、かつURLが有効なときのみ処理する
-if st.button("読み込む"):
-    if url.strip() == "":
-        st.warning("URLを入力してください。")
-    elif not url.startswith("http"):
-        st.error("URLが不正です。httpまたはhttpsで始めてください。")
-    else:
+# 読み込みを試みるのは「ボタンが押されたとき」かつ「URLが有効なとき」
+if url:
+    if st.button("読み込む"):
         try:
-            response = requests.get(url)
-            response.raise_for_status()
-            soup = BeautifulSoup(response.content, "html.parser")
+            headers = {
+                "User-Agent": "Mozilla/5.0"
+            }
+            response = requests.get(url, headers=headers, timeout=10)
+            response.encoding = response.apparent_encoding
+            soup = BeautifulSoup(response.text, "html.parser")
 
-            # <pre> タグのテキスト抽出（複数ある場合は連結）
-            aa_blocks = soup.find_all("pre")
-            aa_text = "\n\n".join(block.get_text() for block in aa_blocks)
+            posts = soup.find_all("pre")
+            if not posts:
+                st.warning("AAを含む <pre> タグが見つかりませんでした。")
+            else:
+                for i, post in enumerate(posts):
+                    text = post.get_text()
+                    if "◆" in text:
+                        st.markdown(f"<pre class='normal'>{text}</pre>", unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"<pre class='gray'>{text}</pre>", unsafe_allow_html=True)
 
-            # 表示
-            st.text_area("取得したAA", aa_text, height=400)
-        
+        except requests.exceptions.MissingSchema:
+            st.error("URLが正しくありません。http:// または https:// から始めてください。")
         except Exception as e:
-            st.error(f"読み込み失敗：{e}")
+            st.error(f"読み込み中にエラーが発生しました: {str(e)}")
+else:
+    st.info("URLを入力してください。")
 
 headers = {"User-Agent": "Mozilla/5.0"}
 response = requests.get(url, headers=headers, timeout=10)
