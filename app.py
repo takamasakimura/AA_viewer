@@ -11,17 +11,27 @@ st.title("やる夫スレ AAビューア")
 
 url = st.text_input("AAスレのURLを入力してください：")
 
-if st.button("読み込む") and url:
-    try:
-        res = requests.get(url)
-        soup = BeautifulSoup(res.content, "html.parser")
-        aa_blocks = soup.find_all("pre")
+# 「読み込む」ボタンが押されたとき、かつURLが有効なときのみ処理する
+if st.button("読み込む"):
+    if url.strip() == "":
+        st.warning("URLを入力してください。")
+    elif not url.startswith("http"):
+        st.error("URLが不正です。httpまたはhttpsで始めてください。")
+    else:
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.content, "html.parser")
 
-        aa_text = "\n\n".join(block.get_text() for block in aa_blocks)
-        st.session_state["aa"] = aa_text  # 後で整形表示
+            # <pre> タグのテキスト抽出（複数ある場合は連結）
+            aa_blocks = soup.find_all("pre")
+            aa_text = "\n\n".join(block.get_text() for block in aa_blocks)
 
-    except Exception as e:
-        st.error(f"読み込み失敗：{e}")
+            # 表示
+            st.text_area("取得したAA", aa_text, height=400)
+        
+        except Exception as e:
+            st.error(f"読み込み失敗：{e}")
 
 headers = {"User-Agent": "Mozilla/5.0"}
 response = requests.get(url, headers=headers, timeout=10)
