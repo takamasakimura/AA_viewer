@@ -7,10 +7,21 @@ import base64
 import os
 
 st.set_page_config(layout="wide")
-st.title("やる夫スレ AAビューア（MS UI Gothic強制）")
+st.title("やる夫スレ AAビューア")
 
-url = "http://yaruoshelter.com/yaruo001/kako/1542/15429/1542970809.html"
-st.write(f"読み込み対象URL：{url}")
+url = st.text_input("AAスレのURLを入力してください：")
+
+if st.button("読み込む") and url:
+    try:
+        res = requests.get(url)
+        soup = BeautifulSoup(res.content, "html.parser")
+        aa_blocks = soup.find_all("pre")
+
+        aa_text = "\n\n".join(block.get_text() for block in aa_blocks)
+        st.session_state["aa"] = aa_text  # 後で整形表示
+
+    except Exception as e:
+        st.error(f"読み込み失敗：{e}")
 
 headers = {"User-Agent": "Mozilla/5.0"}
 response = requests.get(url, headers=headers, timeout=10)
