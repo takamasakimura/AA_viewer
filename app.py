@@ -44,8 +44,8 @@ components.html(f"""
 }}
 body {{
     margin: 0;
-    padding: 1rem;
-    background-color: #fdfdfd;
+    padding: 5px; /* スマホ画面に合わせて最小限に */
+    box-sizing: border-box;
 }}
 pre {{
     font-family: 'AAFont';
