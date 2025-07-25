@@ -2,48 +2,52 @@ import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 import html
+import streamlit.components.v1 as components
 
 st.set_page_config(layout="wide")
-st.title("やる夫スレ 全文AAビューア（等幅表示・地の文あり）")
+st.title("やる夫スレ 完全AA対応ビューア")
 
 url = "http://yaruoshelter.com/yaruo001/kako/1542/15429/1542970809.html"
-st.write(f"読み込み対象URL：{url}")
-
-headers = {
-    "User-Agent": "Mozilla/5.0"
-}
+headers = {"User-Agent": "Mozilla/5.0"}
 
 response = requests.get(url, headers=headers, timeout=10)
 response.encoding = response.apparent_encoding
 soup = BeautifulSoup(response.text, "html.parser")
 
-# <dd> すべてをプレーンテキストとして結合
 dd_blocks = soup.find_all("dd")
-all_text = []
+aa_blocks = []
 
 for dd in dd_blocks:
-    # HTMLエスケープを元に戻す（&nbsp; → 半角スペースなど）
-    raw = html.unescape(dd.get_text("\n"))
-    all_text.append(raw)
+    text = html.unescape(dd.get_text("\n"))
+    aa_blocks.append(text)
 
-combined_text = "\n\n".join(all_text)
+full_text = "\n\n".join(aa_blocks)
 
-# スタイルつきで全文表示
-st.markdown(
-    f"""
-    <div style="
-        font-family: 'MS PGothic', 'MS Gothic', 'Osaka-mono', 'Courier New', Courier, monospace;
-        font-size: 15px;
-        line-height: 1.15;
-        white-space: pre;
-        overflow-x: auto;
-        background-color: #fefefe;
-        padding: 1em;
-        border: 1px solid #ccc;
-        border-radius: 6px;
-    ">
-    {combined_text}
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+# HTMLで直接表示（Markdownを経由しない）
+components.html(f"""
+<html>
+<head>
+<style>
+body {{
+    background-color: #fdfdfd;
+    padding: 20px;
+}}
+pre {{
+    font-family: 'MS PGothic', 'MS Gothic', 'Osaka-mono', 'Courier New', Courier, monospace;
+    font-size: 15px;
+    line-height: 1.1;
+    white-space: pre;
+    overflow-x: auto;
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 10px;
+    color: black;
+}}
+</style>
+</head>
+<body>
+<pre>{full_text}</pre>
+</body>
+</html>
+""", height=2400, scrolling=True)
