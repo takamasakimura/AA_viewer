@@ -29,29 +29,22 @@ components.html(f"""
 <head>
 <style>
 @font-face {{
-  font-family: 'AAFont';
+  font-family: 'Myrica';
   src: url(data:font/woff2;charset=utf-8;base64,{woff2_base64}) format('woff2');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
 }}
 
-body {{
-    background-color: #fdfdfd;
-    padding: 20px;
-}}
-
 pre {{
-  font-family: 'AAFont', monospace;
-  font-size: 15px;
-  line-height: 1.2;
+  font-family: 'Myrica', 'MyricaM M', 'SF Mono', 'Menlo', 'Consolas', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.25;
   white-space: pre;
-  overflow-x: auto;
   background-color: #f9f9f9;
-  border: 1px solid #ddd;
-  border-radius: 6px;
+  border: 1px solid #ccc;
   padding: 10px;
-  color: black;
+  overflow-x: auto;
 }}
 </style>
 </head>
