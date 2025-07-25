@@ -42,21 +42,26 @@ body {{
     padding: 20px;
 }}
 pre {{
-    font-family: 'AAFont', monospace;
-    font-size: 15px;
-    line-height: 1.1;
-    white-space: pre;
-    overflow-x: auto;
-    background-color: #f9f9f9;
-    padding: 1em;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    color: black;
+  font-family: 'AAFont', monospace;
+  font-size: 16px;
+  line-height: 1.35;
+  white-space: pre;
+  overflow-x: auto;
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 10px;
+  color: black;
 }}
 </style>
 </head>
 <body>
-<pre>{full_text}</pre>
+<pre>
+012345678901234567890123456789
+■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+
+{full_text}
+</pre>
 </body>
 </html>
 """, height=2400, scrolling=True)
