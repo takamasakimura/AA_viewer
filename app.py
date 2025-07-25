@@ -24,7 +24,7 @@ with open("MyricaMM.woff2", "rb") as f:
     woff2_base64 = b64encode(f.read()).decode("utf-8")
 
 # HTML + CSSで埋め込みフォント付きAA表示
-html_code = f"""
+components.html(f"""
 <html>
 <head>
 <style>
@@ -41,8 +41,8 @@ body {{
 }}
 pre {{
   font-family: 'AAFont', monospace;
-  font-size: 16px;
-  line-height: 1.35;
+  font-size: 15px;
+  line-height: 1.2;
   white-space: pre;
   overflow-x: auto;
   background-color: #f9f9f9;
@@ -54,14 +54,16 @@ pre {{
 </style>
 </head>
 <body>
+
+<h3>▼ フォント整列テスト</h3>
 <pre>
 012345678901234567890123456789
 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
-この2行がずれて表示されたらフォントが効いてないか、
-1文字の横幅が全角半角で不揃いになっています。
 </pre>
+
+<h3>▼ AA表示（本文）</h3>
+<pre>{full_text}</pre>
+
 </body>
 </html>
-"""
-
-components.html(html_code, height=500, scrolling=True)
+""", height=2400, scrolling=True)
