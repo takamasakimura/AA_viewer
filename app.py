@@ -6,51 +6,50 @@ import streamlit.components.v1 as components
 import base64
 import os
 
+# ページ設定
 st.set_page_config(layout="wide")
-st.title("やる夫スレ 完全AA対応ビューア")
+st.title("やる夫スレ AAビューア（MS UI Gothic強制）")
 
-# ▼ AA取得対象URL
-yaruo_url = "http://yaruoshelter.com/yaruo001/kako/1542/15429/1542970809.html"
-st.write(f"読み込み対象URL：{yaruo_url}")
+# URL
+url = "http://yaruoshelter.com/yaruo001/kako/1542/15429/1542970809.html"
+st.write(f"読み込み対象URL：{url}")
 
-# ▼ HTML取得と解析
+# HTML取得
 headers = {"User-Agent": "Mozilla/5.0"}
-response = requests.get(yaruo_url, headers=headers, timeout=10)
+response = requests.get(url, headers=headers, timeout=10)
 response.encoding = response.apparent_encoding
 soup = BeautifulSoup(response.text, "html.parser")
-
-# ▼ <dd>タグを抽出しテキスト整形
 dd_blocks = soup.find_all("dd")
 aa_blocks = [html.unescape(dd.get_text("\n")) for dd in dd_blocks]
 full_text = "\n\n".join(aa_blocks)
 
-# ▼ .woff2フォント読み込み＆Base64エンコード
+# フォント読み込み → base64化
 font_path = os.path.join("static", "MS-UIGothic.woff2")
-with open(font_path, "rb") as font_file:
-    woff2_base64 = base64.b64encode(font_file.read()).decode("utf-8")
+with open(font_path, "rb") as f:
+    font_data = f.read()
+    font_base64 = base64.b64encode(font_data).decode("utf-8")
 
-# ▼ AA表示コンポーネント
+# 埋め込みHTML表示
 components.html(f"""
 <html>
 <head>
 <style>
 @font-face {{
     font-family: 'AAFont';
-    src: url(data:font/woff2;charset=utf-8;base64,{woff2_base64}) format('woff2');
+    src: url(data:font/woff2;base64,{font_base64}) format('woff2');
     font-weight: normal;
     font-style: normal;
     font-display: swap;
 }}
-
 body {{
+    margin: 0;
+    padding: 1rem;
     background-color: #fdfdfd;
-    padding: 20px;
 }}
-
 pre {{
-    font-family: 'AAFont', monospace;
+    font-family: 'AAFont';
     font-size: 15px;
-    line-height: 1.1;
+    line-height: 1.15;
     white-space: pre;
     overflow-x: auto;
     background-color: #f9f9f9;
