@@ -78,7 +78,7 @@ if st.button("読み込む"):
             posts = []
             for dt, dd in zip(dt_blocks, dd_blocks):
                 dt_text = dt.get_text(strip=True)
-                dd_text = html.unescape(dd.get_text("\n"))
+                dd_text = html.escape(dd.get_text("\n"))
                 color = "#000" if "◆" in dt_text else "#666"
                 post_html = f'<div style="color:{color}; margin-bottom:1em;"><strong>{dt_text}</strong><br><pre>{dd_text}</pre></div>'
                 posts.append(post_html)
