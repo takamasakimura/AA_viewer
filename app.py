@@ -6,6 +6,7 @@ import streamlit.components.v1 as components
 import base64
 import os
 import re
+from pathlib import Path
 
 st.set_page_config(layout="wide")
 
@@ -59,13 +60,34 @@ if os.path.exists(font_path):
 else:
     st.warning("フォントが見つかりません。static/MS-UIGothic.woff2 を確認してください。")
 
+# --- 履歴ファイルのパス定義 ---
+HISTORY_FILE = "url_history.txt"
+MAX_HISTORY = 5
+
+def load_history():
+    if Path(HISTORY_FILE).exists():
+        with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+            lines = f.read().splitlines()
+            return [line for line in lines if line.strip()]
+    return []
+
+# --- URL履歴を保存する関数 ---
+def save_history(new_url):
+    if not re.match(r"^https?://", new_url):
+        return
+    history = load_history()
+    if new_url in history:
+        history.remove(new_url)
+    history.insert(0, new_url)
+    history = history[:MAX_HISTORY]
+    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+        f.write("\n".join(history))
+
 st.title("AA Viewer")
 
-url = st.text_input("AAページのURLを入力してください（http:// または https://）", "")
-
-# アンカーリンクをHTMLで埋め込む関数
-def convert_anchors(text):
-    return re.sub(r'&gt;&gt;(\d+)', r'<a href="#res\1" style="color:blue; text-decoration:none;">&gt;&gt;\1</a>', text)
+history = load_history()
+selected_url = st.selectbox("過去のURL履歴", history) if history else ""
+url = st.text_input("AAページのURLを入力してください（http:// または https://）", value=selected_url)
 
 # 読み込み処理
 if st.button("読み込む"):
@@ -92,7 +114,6 @@ if st.button("読み込む"):
                 dt_text = dt.get_text(strip=True)
                 dd_raw = dd.get_text("\n")
                 dd_escaped = html.escape(dd_raw)
-                dd_escaped = convert_anchors(dd_escaped)
                 color = "#000" if "◆" in dt_text else "#666"
                 post_html = f'<div class="res-block" id="res{index}" style="color:{color};"><strong>{dt_text}</strong><br><pre>{dd_escaped}</pre></div>'
                 posts.append(post_html)
