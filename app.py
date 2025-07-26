@@ -96,7 +96,7 @@ if st.button("読み込む"):
             normalized_url = normalize_url(url)
             headers = {"User-Agent": "Mozilla/5.0"}
             response = requests.get(normalized_url, headers=headers, timeout=10)
-            response.encoding = response.apparent_encoding
+            response.encoding = "shift_jis"
             soup = BeautifulSoup(response.text, "html.parser")
 
             dt_blocks = soup.find_all("dt")
