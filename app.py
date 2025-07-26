@@ -45,6 +45,14 @@ if os.path.exists(font_path):
     .normal {{
         color: black;
     }}
+
+    /* 追加：レス枠の装飾を除去 */
+    .res-block {{
+        background-color: transparent;
+        border: none;
+        padding: 0;
+        margin-bottom: 1.2em;
+    }}
     </style>
     """
     st.markdown(font_css, unsafe_allow_html=True)
@@ -55,7 +63,11 @@ st.title("AA Viewer")
 
 url = st.text_input("AAページのURLを入力してください（http:// または https://）", "")
 
-# ボタンが押されたら処理開始（URLが空でないことも確認）
+# アンカーリンクをHTMLで埋め込む関数
+def convert_anchors(text):
+    return re.sub(r'&gt;&gt;(\d+)', r'<a href="#res\1" style="color:blue; text-decoration:none;">&gt;&gt;\1</a>', text)
+
+# 読み込み処理
 if st.button("読み込む"):
     if url.strip() == "":
         st.warning("URLを入力してください。")
@@ -76,11 +88,13 @@ if st.button("読み込む"):
             dd_blocks = soup.find_all("dd")
 
             posts = []
-            for dt, dd in zip(dt_blocks, dd_blocks):
+            for index, (dt, dd) in enumerate(zip(dt_blocks, dd_blocks), start=1):
                 dt_text = dt.get_text(strip=True)
-                dd_text = html.escape(dd.get_text("\n"))
+                dd_raw = dd.get_text("\n")
+                dd_escaped = html.escape(dd_raw)
+                dd_escaped = convert_anchors(dd_escaped)
                 color = "#000" if "◆" in dt_text else "#666"
-                post_html = f'<div style="color:{color}; margin-bottom:1em;"><strong>{dt_text}</strong><br><pre>{dd_text}</pre></div>'
+                post_html = f'<div class="res-block" id="res{index}" style="color:{color};"><strong>{dt_text}</strong><br><pre>{dd_escaped}</pre></div>'
                 posts.append(post_html)
 
             all_posts_html = "\n".join(posts)
@@ -108,10 +122,12 @@ if st.button("読み込む"):
                 line-height: 1.15;
                 white-space: pre;
                 overflow-x: auto;
-                background-color: #f9f9f9;
-                border: 1px solid #ddd;
-                border-radius: 6px;
-                padding: 10px;
+            }}
+            .res-block {{
+                background-color: transparent;
+                border: none;
+                padding: 0;
+                margin-bottom: 1.2em;
             }}
             </style>
             </head>
