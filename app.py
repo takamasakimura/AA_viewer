@@ -6,7 +6,6 @@ import streamlit.components.v1 as components
 import base64
 import os
 import re
-from pathlib import Path
 
 st.set_page_config(layout="wide")
 
@@ -60,40 +59,34 @@ if os.path.exists(font_path):
 else:
     st.warning("フォントが見つかりません。static/MS-UIGothic.woff2 を確認してください。")
 
-# --- 履歴ファイルのパス定義 ---
-HISTORY_FILE = "url_history.txt"
-MAX_HISTORY = 5
-
-def load_history():
-    if Path(HISTORY_FILE).exists():
-        with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-            lines = f.read().splitlines()
-            return [line for line in lines if line.strip()]
-    return []
-
-# --- URL履歴を保存する関数 ---
-def save_history(new_url):
-    if not re.match(r"^https?://", new_url):
-        return
-    history = load_history()
-    if new_url in history:
-        history.remove(new_url)
-    history.insert(0, new_url)
-    history = history[:MAX_HISTORY]
-    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-        f.write("\n".join(history))
+# ... 既存の import 群の直後に追加
+if "url_history" not in st.session_state:
+    st.session_state["url_history"] = []
 
 st.title("AA Viewer")
 
-history = load_history()
-selected_url = st.selectbox("過去のURL履歴", history) if history else ""
-url = st.text_input("AAページのURLを入力してください（http:// または https://）", value=selected_url)
+# 先に履歴表示（最新が下）
+st.markdown("#### 🔄 過去のURL履歴")
+for old_url in reversed(st.session_state["url_history"]):
+    if st.button(old_url, key=f"hist_{old_url}"):
+        st.session_state["url"] = old_url  # 入力欄へ代入
+
+url = st.text_input("AAページのURLを入力してください（http:// または https://）", key="url")
 
 # 読み込み処理
 if st.button("読み込む"):
     if url.strip() == "":
         st.warning("URLを入力してください。")
+    elif not url.startswith("http://") and not url.startswith("https://"):
+        st.error("URLは http:// または https:// で始めてください。")
     else:
+        # 履歴更新処理（重複回避して末尾に追加、最大5件）
+        history = st.session_state["url_history"]
+        if url in history:
+            history.remove(url)
+        history.append(url)
+        if len(history) > 5:
+            history.pop(0)
         try:
             def normalize_url(input_url: str) -> str:
                 if not re.match(r'^https?://', input_url):
