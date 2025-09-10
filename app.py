@@ -6,6 +6,7 @@ import streamlit.components.v1 as components
 import base64
 import os
 import re
+from copy import copy
 
 st.set_page_config(layout="wide")
 
@@ -108,18 +109,28 @@ if st.button("読み込む"):
 
             posts = []
             for index, (dt, dd) in enumerate(zip(dt_blocks, dd_blocks), start=1):
-                dt_text = remove_surrogates(dt.get_text(strip=True))
-                dd_raw = remove_surrogates(dd.get_text("\n"))
-                # 念のため、UTF-8にエンコード→デコードで不正コードポイントを完全除去
-                dd_raw = dd_raw.encode("utf-8", "replace").decode("utf-8")
-                dt_text = dt_text.encode("utf-8", "replace").decode("utf-8")
+                # 投稿ヘッダはstripしてOK（AAには影響なし）
+                dt_text = dt.get_text(strip=True)
+
+                # dd をシャローコピーして <br> → 改行 だけ反映
+                dd_clone = copy(dd)
+                for br in dd_clone.find_all("br"):
+                    br.replace_with("\n")
+
+                # インライン要素間には改行を入れない
+                dd_raw = dd_clone.get_text(separator="", strip=False)
+
+                # 文字化け・サロゲート対策（既出パッチを入れている前提）
+                # dd_raw = remove_surrogates(dd_raw)
+                # dd_raw = dd_raw.encode("utf-8", "replace").decode("utf-8")
 
                 dd_escaped = html.escape(dd_raw)
+
                 color = "#000" if "◆" in dt_text else "#666"
                 post_html = (
                     f'<div class="res-block" id="res{index}" style="color:{color};">'
                     f"<strong>{dt_text}</strong><br><pre>{dd_escaped}</pre></div>"
-                )
+    )
                 posts.append(post_html)
 
             all_posts_html = "\n".join(posts)
