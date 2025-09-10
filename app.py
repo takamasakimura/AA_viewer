@@ -8,6 +8,11 @@ import os
 import re
 from copy import copy
 
+def safe_utf8(s: str) -> str:
+    # サロゲート(D800–DFFF)を安全文字に置換 → その後UTF-8で置換エンコード
+    s = re.sub(r'[\ud800-\udfff]', '\uFFFD', s)
+    return s.encode("utf-8", "replace").decode("utf-8")
+
 st.set_page_config(layout="wide")
 
 # カスタムフォントCSS（MS UI Gothic）
@@ -109,20 +114,17 @@ if st.button("読み込む"):
 
             posts = []
             for index, (dt, dd) in enumerate(zip(dt_blocks, dd_blocks), start=1):
-                # 投稿ヘッダはstripしてOK（AAには影響なし）
-                dt_text = dt.get_text(strip=True)
+                # ヘッダ
+                dt_text = safe_utf8(dt.get_text(strip=True))
 
-                # dd をシャローコピーして <br> → 改行 だけ反映
+                # 本文は <br> だけ改行に変換、他は改行を入れない
                 dd_clone = copy(dd)
                 for br in dd_clone.find_all("br"):
                     br.replace_with("\n")
-
-                # インライン要素間には改行を入れない
                 dd_raw = dd_clone.get_text(separator="", strip=False)
 
-                # 文字化け・サロゲート対策（既出パッチを入れている前提）
-                # dd_raw = remove_surrogates(dd_raw)
-                # dd_raw = dd_raw.encode("utf-8", "replace").decode("utf-8")
+                # ★ここが肝：サロゲート除去＋UTF-8置換エンコード
+                dd_raw = safe_utf8(dd_raw)
 
                 dd_escaped = html.escape(dd_raw)
 
@@ -134,6 +136,11 @@ if st.button("読み込む"):
                 posts.append(post_html)
 
             all_posts_html = "\n".join(posts)
+
+            try:
+                font_base64
+            except NameError:
+                font_base64 = ""
 
             components.html(f"""
             <html>
