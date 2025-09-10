@@ -4,12 +4,16 @@ from bs4 import BeautifulSoup
 from bs4 import UnicodeDammit
 import streamlit.components.v1 as components
 
+# --- session init ---
+if "url_history" not in st.session_state:
+    st.session_state["url_history"] = []
 if "url_input" not in st.session_state:
     st.session_state["url_input"] = ""
 
 st.set_page_config(layout="wide")
 st.title("AA Viewer")
 
+# --- history UI ---
 st.markdown("#### 🔄 過去のURL履歴")
 for old_url in reversed(st.session_state["url_history"]):
     if st.button(old_url, key=f"hist_{old_url}"):
@@ -21,7 +25,7 @@ url_value = st.text_input(
     key="url_input"
 )
 
-# Webフォント（任意）
+# --- optional webfont ---
 font_base64 = ""
 font_path = os.path.join("static", "MS-UIGothic.woff2")
 if os.path.exists(font_path):
@@ -37,36 +41,30 @@ def normalize_url(u: str) -> str:
     return u
 
 def fetch_html(u: str) -> str:
-    """混在エンコーディングでも落ちない安全デコード"""
+    """混在エンコでも落ちない安全デコード"""
     headers = {"User-Agent": "Mozilla/5.0"}
     resp = requests.get(u, headers=headers, timeout=15)
     resp.raise_for_status()
 
-    # 文字コード推定→安全デコード
     dm = UnicodeDammit(resp.content)
     text = dm.unicode_markup if dm.unicode_markup else resp.content.decode("utf-8", "replace")
-
-    # サロゲート（U+D800–U+DFFF）除去：UTF-8再エンコード時の落ちを防ぐ
+    # サロゲート除去（U+D800–DFFF）
     text = re.sub(r"[\ud800-\udfff]", " ", text)
     return text
 
 def extract_posts(doc: str) -> str:
-    """<dt><dd>系掲示板を想定。改行・空白は壊さない"""
+    """<dt><dd> 形式を想定。改行・空白は壊さない"""
     soup = BeautifulSoup(doc, "html.parser")
-
     dt_blocks = soup.find_all("dt")
     dd_blocks = soup.find_all("dd")
     posts = []
 
     for idx, (dt, dd) in enumerate(zip(dt_blocks, dd_blocks), start=1):
-        # header: 名前・トリップ等
         dt_text = dt.get_text(strip=True)
-
-        # 本文：innerHTMLを取得して改行だけ正規化（<br>→\n）
-        raw_html = dd.decode_contents()              # ここが重要：get_textしない
-        body = re.sub(r"(?i)<br\s*/?>", "\n", raw_html)
-        body = body.replace("\r\n", "\n").replace("\r", "\n")
-        body = re.sub(r"[\ud800-\udfff]", " ", body) # 念のため本文側にも適用
+        raw_html = dd.decode_contents()                         # innerHTMLをそのまま
+        body = re.sub(r"(?i)<br\s*/?>", "\n", raw_html)         # <br>→\n
+        body = body.replace("\r\n", "\n").replace("\r", "\n")   # 改行正規化
+        body = re.sub(r"[\ud800-\udfff]", " ", body)            # 念のため本文にも
         safe = html.escape(body)
 
         color = "#000" if "◆" in dt_text else "#666"
@@ -81,8 +79,8 @@ def extract_posts(doc: str) -> str:
     return "\n".join(posts)
 
 def render_page(posts_html: str):
-    """Streamlit上に安全に埋め込み"""
-    # 最終ガード：UTF-8に一度通す（? 置換）
+    """Streamlitへ安全に埋め込み"""
+    # 最終ガード：UTF-8に一度通す（置換）
     safe_html = posts_html.encode("utf-8", "replace").decode("utf-8")
 
     font_face = ""
@@ -124,13 +122,13 @@ pre.aa {{
   font-family: var(--aa-font), monospace;
   font-size: 14px;
   line-height: 1.4;
-  white-space: pre;           /* 改行のみ尊重。自動折返ししない */
-  text-wrap: nowrap;          /* iOS 17+ */
+  white-space: pre;       /* 改行のみ尊重 */
+  text-wrap: nowrap;      /* iOS 17+ */
   word-break: normal;
   overflow-wrap: normal;
   -webkit-hyphens: none;
   hyphens: none;
-  overflow-x: auto;           /* 横スクロール */
+  overflow-x: auto;       /* 横スクロール */
   font-variant-ligatures: none;
   -webkit-text-size-adjust: 100%;
 }}
@@ -140,9 +138,9 @@ strong {{ font-weight: bold; }}
 <body>
 {safe_html}
 </body>
-</html>
-""", height=3000, scrolling=True)
+</html>""", height=3000, scrolling=True)
 
+# --- action ---
 if st.button("読み込む"):
     if url_value.strip() == "":
         st.warning("URLを入力してください。")
@@ -157,10 +155,7 @@ if st.button("読み込む"):
             doc = fetch_html(u)
             posts_html = extract_posts(doc)
             render_page(posts_html)
+        except requests.exceptions.MissingSchema:
+            st.error("URLが正しくありません。http:// または https:// から始めてください。")
         except Exception as e:
             st.error(f"読み込み中にエラーが発生しました: {e}")
-
-
-
-
-
