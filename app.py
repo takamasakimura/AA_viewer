@@ -7,6 +7,7 @@ import base64
 import os
 import re
 from copy import copy
+from bs4 import NavigableString
 
 def safe_utf8(s: str) -> str:
     # サロゲート(D800–DFFF)を安全文字に置換 → その後UTF-8で置換エンコード
@@ -123,15 +124,14 @@ if st.button("読み込む"):
                     br.replace_with("\n")
                 dd_raw = dd_clone.get_text(separator="", strip=False)
 
-                # ★ここが肝：サロゲート除去＋UTF-8置換エンコード
-                dd_raw = safe_utf8(dd_raw)
+                # サロゲート除去＋UTF-8置換エンコード
+                dd_safe = safe_utf8(dd_raw)
 
-                dd_escaped = html.escape(dd_raw)
-
+                # ここでは escape しない（AA崩れ防止）
                 color = "#000" if "◆" in dt_text else "#666"
                 post_html = (
                     f'<div class="res-block" id="res{index}" style="color:{color};">'
-                    f"<strong>{dt_text}</strong><br><pre>{dd_escaped}</pre></div>"
+                    f"<strong>{dt_text}</strong><br><pre>{dd_safe}</pre></div>"
     )
                 posts.append(post_html)
 
