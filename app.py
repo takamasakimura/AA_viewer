@@ -71,6 +71,10 @@ for old_url in reversed(st.session_state["url_history"]):
     if st.button(old_url, key=f"hist_{old_url}"):
         st.session_state["url"] = old_url  # 入力欄へ代入
 
+def remove_surrogates(s: str) -> str:
+    # UTF-16のサロゲート領域（D800–DFFF）を安全文字へ置換
+    return re.sub(r'[\ud800-\udfff]', '\uFFFD', s)
+
 url = st.text_input("AAページのURLを入力してください（http:// または https://）", key="url")
 
 # 読み込み処理
@@ -96,7 +100,7 @@ if st.button("読み込む"):
             normalized_url = normalize_url(url)
             headers = {"User-Agent": "Mozilla/5.0"}
             response = requests.get(normalized_url, headers=headers, timeout=10)
-            decoded = response.content.decode("shift_jis", errors="ignore")
+            decoded = response.content.decode("cp932", errors="replace")
             soup = BeautifulSoup(decoded, "html.parser")
 
             dt_blocks = soup.find_all("dt")
@@ -104,11 +108,18 @@ if st.button("読み込む"):
 
             posts = []
             for index, (dt, dd) in enumerate(zip(dt_blocks, dd_blocks), start=1):
-                dt_text = dt.get_text(strip=True)
-                dd_raw = dd.get_text("\n")
+                dt_text = remove_surrogates(dt.get_text(strip=True))
+                dd_raw = remove_surrogates(dd.get_text("\n"))
+                # 念のため、UTF-8にエンコード→デコードで不正コードポイントを完全除去
+                dd_raw = dd_raw.encode("utf-8", "replace").decode("utf-8")
+                dt_text = dt_text.encode("utf-8", "replace").decode("utf-8")
+
                 dd_escaped = html.escape(dd_raw)
                 color = "#000" if "◆" in dt_text else "#666"
-                post_html = f'<div class="res-block" id="res{index}" style="color:{color};"><strong>{dt_text}</strong><br><pre>{dd_escaped}</pre></div>'
+                post_html = (
+                    f'<div class="res-block" id="res{index}" style="color:{color};">'
+                    f"<strong>{dd_text}</strong><br><pre>{dd_escaped}</pre></div>"
+                )
                 posts.append(post_html)
 
             all_posts_html = "\n".join(posts)
