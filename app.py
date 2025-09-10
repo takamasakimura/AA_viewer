@@ -118,7 +118,7 @@ if st.button("読み込む"):
                 color = "#000" if "◆" in dt_text else "#666"
                 post_html = (
                     f'<div class="res-block" id="res{index}" style="color:{color};">'
-                    f"<strong>{dd_text}</strong><br><pre>{dd_escaped}</pre></div>"
+                    f"<strong>{dt_text}</strong><br><pre>{dd_escaped}</pre></div>"
                 )
                 posts.append(post_html)
 
