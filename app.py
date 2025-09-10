@@ -1,25 +1,25 @@
 import streamlit as st
-import requests
-from bs4 import BeautifulSoup
-from bs4 import UnicodeDammit
-import requests, base64, os, re, html
-import streamlit.components.v1 as components
-
-st.set_page_config(layout="wide")
-st.title("AA Viewer")
-
-url = st.text_input("AAページのURLを入力してください（http:// または https://）", key="url")
-
-import streamlit as st
 import requests, base64, os, re, html
 from bs4 import BeautifulSoup
 from bs4 import UnicodeDammit
 import streamlit.components.v1 as components
 
+if "url_input" not in st.session_state:
+    st.session_state["url_input"] = ""
+
 st.set_page_config(layout="wide")
 st.title("AA Viewer")
 
-url = st.text_input("AAページのURLを入力してください（http:// または https://）", key="url")
+st.markdown("#### 🔄 過去のURL履歴")
+for old_url in reversed(st.session_state["url_history"]):
+    if st.button(old_url, key=f"hist_{old_url}"):
+        st.session_state["url_input"] = old_url
+        st.rerun()
+
+url_value = st.text_input(
+    "AAページのURLを入力してください（http:// または https://）",
+    key="url_input"
+)
 
 # Webフォント（任意）
 font_base64 = ""
@@ -144,12 +144,11 @@ strong {{ font-weight: bold; }}
 """, height=3000, scrolling=True)
 
 if st.button("読み込む"):
-    if url.strip() == "":
+    if url_value.strip() == "":
         st.warning("URLを入力してください。")
     else:
         try:
-            u = normalize_url(url)
-            # 履歴更新（重複排除）
+            u = normalize_url(url_value)
             hist = st.session_state["url_history"]
             if u in hist: hist.remove(u)
             hist.append(u)
@@ -158,11 +157,10 @@ if st.button("読み込む"):
             doc = fetch_html(u)
             posts_html = extract_posts(doc)
             render_page(posts_html)
-
-        except requests.exceptions.MissingSchema:
-            st.error("URLが正しくありません。http:// または https:// から始めてください。")
         except Exception as e:
             st.error(f"読み込み中にエラーが発生しました: {e}")
+
+
 
 
 
