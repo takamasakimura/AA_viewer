@@ -9,10 +9,9 @@ import re
 from copy import copy
 from bs4 import NavigableString
 
+# --- サロゲート除去のみ。encode/decode はしない（AA崩れ防止）
 def safe_utf8(s: str) -> str:
-    # サロゲート(D800–DFFF)を安全文字に置換 → その後UTF-8で置換エンコード
-    s = re.sub(r'[\ud800-\udfff]', '\uFFFD', s)
-    return s.encode("utf-8", "replace").decode("utf-8")
+    return re.sub(r'[\ud800-\udfff]', '\uFFFD', s)
 
 st.set_page_config(layout="wide")
 
