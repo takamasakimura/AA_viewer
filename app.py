@@ -1,25 +1,24 @@
-# app.py — AA Viewer（途切れ対策入り・最小修正）
+# app.py — AA Viewer 完全版（◆と直後のみ表示オプション付き）
 
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 import streamlit.components.v1 as components
-import base64, os, re
+import base64, os, re, html
 from copy import copy
-import html
 
 # --- 文字サニタイズ ---
 def safe_utf8(s: str) -> str:
-    # サロゲート(D800–DFFF) →   に
+    # サロゲート(D800–DFFF)を   に置換
     return re.sub(r'[\ud800-\udfff]', '\uFFFD', s)
 
 def strip_controls(s: str) -> str:
-    # 制御文字(C0)のうち \t \n \r 以外は   に
+    # 制御文字(C0)のうち \t \n \r 以外は   に置換
     return re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F]', '\uFFFD', s)
 
 st.set_page_config(layout="wide")
 
-# --- フォント（あれば埋め込み） ---
+# --- フォント埋め込み（MS UI Gothicがあれば利用） ---
 font_base64 = ""
 font_path = os.path.join("static", "MS-UIGothic.woff2")
 if os.path.exists(font_path):
@@ -43,17 +42,23 @@ pre {{
   white-space: pre; overflow-x:auto; margin:0;
 }}
 .res-block {{ background:transparent; border:none; padding:0; margin-bottom:1.2em; }}
+.res-block.op {{ border-left:4px solid #000; padding-left:6px; }}
+.res-block.op-follow {{ background:rgba(10,88,202,0.06); border-left:4px solid #0a58ca; padding-left:6px; }}
 </style>
 """, unsafe_allow_html=True)
 
 if not font_base64:
     st.warning("フォントが見つかりません。static/MS-UIGothic.woff2 を確認してください。等幅フォントで表示します。")
 
-# --- 履歴UI ---
+# --- 履歴 ---
 if "url_history" not in st.session_state:
     st.session_state["url_history"] = []
 
 st.title("AA Viewer")
+
+# フィルタ切り替え
+filter_mode = st.checkbox("◆と直後のみ表示（雑談を省く）", value=True)
+
 st.markdown("#### 🔄 過去のURL履歴")
 for old_url in reversed(st.session_state["url_history"]):
     if st.button(old_url, key=f"hist_{old_url}"):
@@ -86,24 +91,39 @@ if st.button("読み込む"):
             dd_blocks = soup.find_all("dd")
 
             posts = []
+            last_was_op = False
+
             for idx, (dt, dd) in enumerate(zip(dt_blocks, dd_blocks), start=1):
-                # 見出し（安全化してからエスケープ）
+                # 見出し
                 dt_text = strip_controls(safe_utf8(dt.get_text(strip=True)))
                 dt_show = html.escape(dt_text, quote=False)
 
-                # 本文：<br>だけ改行化、他は改行を入れない
+                # 本文：<br> を改行に、他は改行を入れない
                 dd_clone = copy(dd)
                 for br in dd_clone.find_all("br"):
                     br.replace_with("\n")
                 dd_raw = dd_clone.get_text(separator="", strip=False)
 
-                # 文字サニタイズ → タグ誤解釈防止のため最小エスケープ
                 dd_safe = strip_controls(safe_utf8(dd_raw))
-                dd_show = html.escape(dd_safe, quote=False)  # &, <, > を実体参照化
+                dd_show = html.escape(dd_safe, quote=False)
 
-                color = "#000" if "◆" in dt_text else "#666"
+                # ◆と直後フィルタ
+                is_op = ("◆" in dt_text)
+                after_op = last_was_op
+                last_was_op = is_op
+
+                if filter_mode and not (is_op or after_op):
+                    continue
+
+                if is_op:
+                    color = "#000"; role_class = "op"
+                elif after_op:
+                    color = "#0a58ca"; role_class = "op-follow"
+                else:
+                    color = "#666"; role_class = "other"
+
                 posts.append(
-                    f'<div class="res-block" id="res{idx}" style="color:{color};">'
+                    f'<div class="res-block {role_class}" id="res{idx}" style="color:{color};">'
                     f"<strong>{dt_show}</strong><br><pre>{dd_show}</pre></div>"
                 )
 
@@ -123,6 +143,8 @@ if st.button("読み込む"):
 body {{ margin:0; padding:5px; font-family: {'AAFont, ' if font_base64 else ''}monospace; }}
 pre  {{ font-family: {'AAFont, ' if font_base64 else ''}monospace; font-size:15px; line-height:1.15; white-space:pre; overflow-x:auto; margin:0; }}
 .res-block {{ background:transparent; border:none; padding:0; margin-bottom:1.2em; }}
+.res-block.op {{ border-left:4px solid #000; padding-left:6px; }}
+.res-block.op-follow {{ background:rgba(10,88,202,0.06); border-left:4px solid #0a58ca; padding-left:6px; }}
 </style>
 </head>
 <body>
