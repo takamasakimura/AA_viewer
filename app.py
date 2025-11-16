@@ -1,14 +1,12 @@
-# app.py — AA Viewer 軽量版（◆と直後のみ表示オプション付き／モバイル対応）
+# app.py — AA Viewer 軽量版（◆と直後のみ表示オプション付き／モバイル対策）
 
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 import streamlit.components.v1 as components
-import re, html
+import re
+import html
 from copy import copy
-
-# --- 表示する最大レス数（重くなる場合はここを減らす） ---
-MAX_POSTS = 400
 
 # --- 文字サニタイズ ---
 def safe_utf8(s: str) -> str:
@@ -21,7 +19,7 @@ def strip_controls(s: str) -> str:
 
 st.set_page_config(layout="wide")
 
-# --- グローバルCSS（等幅システムフォントに統一） ---
+# --- グローバルCSS：等幅システムフォントに統一 ---
 st.markdown("""
 <style>
 html, body, .stApp {
@@ -62,6 +60,15 @@ st.title("AA Viewer")
 
 # フィルタ切り替え
 filter_mode = st.checkbox("◆と直後のみ表示（雑談を省く）", value=True)
+
+# 最大表示レス数をユーザー側で調整できるようにする
+max_posts = st.number_input(
+    "最大表示レス数（多すぎるとスマホで落ちることがあります）",
+    min_value=50,
+    max_value=2000,
+    value=400,
+    step=50,
+)
 
 st.markdown("#### 🔄 過去のURL履歴")
 for old_url in reversed(st.session_state["url_history"]):
@@ -138,14 +145,15 @@ if st.button("読み込む"):
                     f"<strong>{dt_show}</strong><br><pre>{dd_show}</pre></div>"
                 )
 
-            # レス数が多すぎる場合は先頭 MAX_POSTS 件だけに制限
             if len(posts) == 0:
                 st.info("条件に合致するレスがありませんでした。フィルタ設定を確認してください。")
                 st.stop()
 
-            if len(posts) > MAX_POSTS:
-                st.info(f"レス数が多いため、先頭 {MAX_POSTS} 件まで表示しています。")
-                posts = posts[:MAX_POSTS]
+            # レス数が多すぎる場合は先頭 max_posts 件だけに制限
+            safe_max = int(max_posts)
+            if len(posts) > safe_max:
+                st.info(f"レス数が多いため、先頭 {safe_max} 件まで表示しています。")
+                posts = posts[:safe_max]
 
             all_posts_html = "\n".join(posts)
             height = min(5000, 400 + 22 * max(1, len(posts)))
@@ -188,6 +196,6 @@ if st.button("読み込む"):
 """, height=height, scrolling=True)
 
         except requests.exceptions.MissingSchema:
-            st.error("URLが正しくありません。http:// または https:// から始めてください。")
+            st.error("URLが正しくありません。http:// または https:// で始めてください。")
         except Exception as e:
             st.error(f"読み込み中にエラーが発生しました: {str(e)}")
