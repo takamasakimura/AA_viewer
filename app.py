@@ -1,11 +1,14 @@
-# app.py — AA Viewer 完全版（◆と直後のみ表示オプション付き）
+# app.py — AA Viewer 軽量版（◆と直後のみ表示オプション付き／モバイル対応）
 
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 import streamlit.components.v1 as components
-import base64, os, re, html
+import re, html
 from copy import copy
+
+# --- 表示する最大レス数（重くなる場合はここを減らす） ---
+MAX_POSTS = 400
 
 # --- 文字サニタイズ ---
 def safe_utf8(s: str) -> str:
@@ -18,37 +21,38 @@ def strip_controls(s: str) -> str:
 
 st.set_page_config(layout="wide")
 
-# --- フォント埋め込み（MS UI Gothicがあれば利用） ---
-font_base64 = ""
-font_path = os.path.join("static", "MS-UIGothic.woff2")
-if os.path.exists(font_path):
-    try:
-        with open(font_path, "rb") as f:
-            font_base64 = base64.b64encode(f.read()).decode("utf-8")
-    except Exception:
-        pass
-
-st.markdown(f"""
+# --- グローバルCSS（等幅システムフォントに統一） ---
+st.markdown("""
 <style>
-@font-face {{
-  font-family: 'AAFont';
-  src: url("data:font/woff2;base64,{font_base64}") format('woff2');
-}}
-html, body, .stApp {{
-  font-family: {'AAFont, ' if font_base64 else ''}monospace;
-  font-size: 14px; line-height: 1.4; background:#fdfdfd; overflow-x:auto;
-}}
-pre {{
-  white-space: pre; overflow-x:auto; margin:0;
-}}
-.res-block {{ background:transparent; border:none; padding:0; margin-bottom:1.2em; }}
-.res-block.op {{ border-left:4px solid #000; padding-left:6px; }}
-.res-block.op-follow {{ background:rgba(10,88,202,0.06); border-left:4px solid #0a58ca; padding-left:6px; }}
+html, body, .stApp {
+  font-family: monospace;
+  font-size: 14px;
+  line-height: 1.4;
+  background:#fdfdfd;
+  overflow-x:auto;
+}
+pre {
+  white-space: pre;
+  overflow-x:auto;
+  margin:0;
+}
+.res-block {
+  background:transparent;
+  border:none;
+  padding:0;
+  margin-bottom:1.2em;
+}
+.res-block.op {
+  border-left:4px solid #000;
+  padding-left:6px;
+}
+.res-block.op-follow {
+  background:rgba(10,88,202,0.06);
+  border-left:4px solid #0a58ca;
+  padding-left:6px;
+}
 </style>
 """, unsafe_allow_html=True)
-
-if not font_base64:
-    st.warning("フォントが見つかりません。static/MS-UIGothic.woff2 を確認してください。等幅フォントで表示します。")
 
 # --- 履歴 ---
 if "url_history" not in st.session_state:
@@ -76,10 +80,13 @@ if st.button("読み込む"):
     elif not (url.startswith("http://") or url.startswith("https://")):
         st.error("URLは http:// または https:// で始めてください。")
     else:
+        # 履歴更新
         hist = st.session_state["url_history"]
-        if url in hist: hist.remove(url)
+        if url in hist:
+            hist.remove(url)
         hist.append(url)
-        if len(hist) > 5: hist.pop(0)
+        if len(hist) > 5:
+            hist.pop(0)
 
         try:
             headers = {"User-Agent": "Mozilla/5.0"}
@@ -116,41 +123,68 @@ if st.button("読み込む"):
                     continue
 
                 if is_op:
-                    color = "#000"; role_class = "op"
+                    color = "#000"
+                    role_class = "op"
                 elif after_op:
-                    color = "#0a58ca"; role_class = "op-follow"
+                    color = "#0a58ca"
+                    role_class = "op-follow"
                 else:
-                    color = "#666"; role_class = "other"
+                    color = "#666"
+                    role_class = "other"
 
                 posts.append(
-                    f'<div class="res-block {role_class}" id="res{idx}" style="color:{color};">'
+                    f'<div class="res-block {role_class}" id="res{idx}" '
+                    f'style="color:{color};">'
                     f"<strong>{dt_show}</strong><br><pre>{dd_show}</pre></div>"
                 )
+
+            # レス数が多すぎる場合は先頭 MAX_POSTS 件だけに制限
+            if len(posts) == 0:
+                st.info("条件に合致するレスがありませんでした。フィルタ設定を確認してください。")
+                st.stop()
+
+            if len(posts) > MAX_POSTS:
+                st.info(f"レス数が多いため、先頭 {MAX_POSTS} 件まで表示しています。")
+                posts = posts[:MAX_POSTS]
 
             all_posts_html = "\n".join(posts)
             height = min(5000, 400 + 22 * max(1, len(posts)))
 
+            # 軽量な HTML 断片だけを埋め込む（フル <html> / <head> は使わない）
             components.html(f"""
-<html>
-<head>
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=10, user-scalable=yes">
 <style>
-@font-face {{
-  font-family: 'AAFont';
-  src: url(data:font/woff2;base64,{font_base64}) format('woff2');
-  font-display: swap;
+#aa-root {{
+  margin:0;
+  padding:5px;
+  font-family: monospace;
 }}
-body {{ margin:0; padding:5px; font-family: {'AAFont, ' if font_base64 else ''}monospace; }}
-pre  {{ font-family: {'AAFont, ' if font_base64 else ''}monospace; font-size:15px; line-height:1.15; white-space:pre; overflow-x:auto; margin:0; }}
-.res-block {{ background:transparent; border:none; padding:0; margin-bottom:1.2em; }}
-.res-block.op {{ border-left:4px solid #000; padding-left:6px; }}
-.res-block.op-follow {{ background:rgba(10,88,202,0.06); border-left:4px solid #0a58ca; padding-left:6px; }}
+#aa-root pre {{
+  font-family: monospace;
+  font-size:15px;
+  line-height:1.15;
+  white-space:pre;
+  overflow-x:auto;
+  margin:0;
+}}
+#aa-root .res-block {{
+  background:transparent;
+  border:none;
+  padding:0;
+  margin-bottom:1.2em;
+}}
+#aa-root .res-block.op {{
+  border-left:4px solid #000;
+  padding-left:6px;
+}}
+#aa-root .res-block.op-follow {{
+  background:rgba(10,88,202,0.06);
+  border-left:4px solid #0a58ca;
+  padding-left:6px;
+}}
 </style>
-</head>
-<body>
+<div id="aa-root">
 {all_posts_html}
-</body>
-</html>
+</div>
 """, height=height, scrolling=True)
 
         except requests.exceptions.MissingSchema:
