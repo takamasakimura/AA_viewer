@@ -281,4 +281,4 @@ if st.button("読み込む"):
             height = min(5000, 400 + 22 * max(1, len(page_posts_html)))
 
             # AA専用フォントを使うかどうかで CSS を出し分け
-            font_face_css = AA_FONT_CSS_SNIPPE_
+            font_face_css = AA_FONT_CSS_SNIPPET if (use_aa_font and AA_FONT_CSS_SNIPPET) els
