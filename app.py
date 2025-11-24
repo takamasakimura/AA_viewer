@@ -281,4 +281,60 @@ if st.button("読み込む"):
             height = min(5000, 400 + 22 * max(1, len(page_posts_html)))
 
             # AA専用フォントを使うかどうかで CSS を出し分け
-            font_face_css = AA_FONT_CSS_SNIPPET if (use_aa_font and AA_FONT_CSS_SNIPPET) els
+            font_face_css = AA_FONT_CSS_SNIPPET if (use_aa_font and AA_FONT_CSS_SNIPPET) else ""
+            font_family_css = "'AAFont', monospace" if (use_aa_font and AA_FONT_CSS_SNIPPET) else "monospace"
+
+            # 軽量な HTML 断片だけを埋め込む
+            components.html(
+                f"""
+<style>
+{font_face_css}
+#aa-root {{
+  margin:0;
+  padding:5px;
+  font-family: {font_family_css};
+}}
+#aa-root pre {{
+  font-family: {font_family_css};
+  font-size:15px;
+  line-height:1.15;
+  white-space:pre;
+  overflow-x:auto;
+  margin:0;
+}}
+#aa-root .res-block {{
+  background:transparent;
+  border:none;
+  padding:0;
+  margin-bottom:1.2em;
+}}
+#aa-root .res-block.op {{
+  border-left:4px solid #000;
+  padding-left:6px;
+}}
+#aa-root .res-block.op-follow {{
+  background:rgba(10,88,202,0.06);
+  border-left:4px solid #0a58ca;
+  padding-left:6px;
+}}
+</style>
+<div id="aa-root">
+{all_posts_html}
+</div>
+""",
+                height=height,
+                scrolling=True,
+            )
+
+        except requests.exceptions.MissingSchema:
+            st.error(
+                "URLの形式を解釈できませんでした。\n"
+                "http:// または https:// から始まる完全なURL、もしくは ttp:// 形式に近い文字列を入力してください。"
+            )
+        except requests.exceptions.RequestException as e:
+            st.error(
+                f"URLに接続できませんでした: {e}\n"
+                "入力した文字列が実際にウェブ上で開けるURLか確認してみてください。"
+            )
+        except Exception as e:
+            st.error(f"読み込み中にエラーが発生しました: {str(e)}")
