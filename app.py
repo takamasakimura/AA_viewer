@@ -1,4 +1,7 @@
-# app.py — AA Viewer ページ範囲＋全レス表示モード付き（◆と直後のみ表示／モバイル対策）
+# app.py — AA Viewer ページ範囲＋全レス表示モード付き
+# ・◆と直後のみ表示フィルタ
+# ・ページ指定 or 全レス表示
+# ・ttp:// / ttps:// や http なしの .html URL を自動補正
 
 import streamlit as st
 import requests
@@ -8,7 +11,7 @@ import re
 import html
 from copy import copy
 
-# 安全側の全レス最大数（全レスモードでもこれ以上は切る）
+# 全レスモード時の安全上限（これ以上は自動で切り捨て）
 HARD_MAX_ALL = 3000
 
 # --- 文字サニタイズ ---
@@ -19,6 +22,37 @@ def safe_utf8(s: str) -> str:
 def strip_controls(s: str) -> str:
     # 制御文字(C0)のうち \t \n \r 以外は   に置換
     return re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F]', '\uFFFD', s)
+
+# --- URL 補正 ---
+def normalize_url(raw: str) -> str:
+    """
+    入力された文字列を「requests でアクセス可能な URL」に寄せていく関数。
+    主な補正:
+      - 先頭が ttp:// → http:// に補正
+      - 先頭が ttps:// → https:// に補正
+      - それでも http(s) で始まっていない場合、
+        .html で終わる or '.' を含むなら 'http://' を前に付ける
+    """
+    u = raw.strip()
+
+    # ttp / ttps を補正
+    if u.startswith("ttp://"):
+        u = "h" + u  # → http://
+    elif u.startswith("ttps://"):
+        u = "h" + u  # → https://
+
+    # すでに http(s) ならそのまま
+    if re.match(r"^https?://", u, re.IGNORECASE):
+        return u
+
+    # それ以外で .html で終わる or ドメインっぽく '.' を含んでいる場合は、
+    # 'http://' を付けてみる（例: yaruo.sakura.ne.jp/aaa.html）
+    if u.endswith(".html") or "." in u:
+        return "http://" + u
+
+    # ここまで来たら、URLとしてはかなり曖昧なのでそのまま返す
+    # → 後続の requests.get で MissingSchema / InvalidURL が出る
+    return u
 
 st.set_page_config(layout="wide")
 
@@ -64,7 +98,7 @@ st.title("AA Viewer")
 # ◆と直後のみ表示するか
 filter_mode = st.checkbox("◆と直後のみ表示（雑談を省く）", value=True)
 
-# 1ページあたりのレス数（例: 400）
+# 1ページあたりのレス数
 page_size = st.number_input(
     "1ページあたりのレス数（多すぎるとスマホで落ちることがあります）",
     min_value=50,
@@ -73,13 +107,13 @@ page_size = st.number_input(
     step=50,
 )
 
-# 全レス表示モード（PCなどで、負荷を覚悟して全部見たいとき用）
+# 全レス表示モード
 all_mode = st.checkbox(
     "全レス表示（レス数が多いときはスマホで落ちる可能性があります）",
     value=False,
 )
 
-# 開始レス番号（1～）を指定
+# 範囲指定用の開始レス番号（全レス表示ON時は無視）
 start_no = st.number_input(
     "表示開始レス番号（例: 1 → 1～400, 401 → 401～800）※全レス表示ONのときは無視されます",
     min_value=1,
@@ -92,29 +126,36 @@ for old_url in reversed(st.session_state["url_history"]):
     if st.button(old_url, key=f"hist_{old_url}"):
         st.session_state["url"] = old_url
 
-def normalize_url(u: str) -> str:
-    return u if re.match(r'^https?://', u) else 'http://' + u
-
-url = st.text_input("AAページのURLを入力してください（http:// または https://）", key="url")
+# ユーザー入力
+raw_url_input = st.text_input(
+    "AAページのURL（http://, https://, ttp://, yaruo～.html など）を入力してください",
+    key="url",
+)
 
 # --- 読み込み ---
 if st.button("読み込む"):
-    if not url.strip():
+    raw_url = (raw_url_input or "").strip()
+
+    if not raw_url:
         st.warning("URLを入力してください。")
-    elif not (url.startswith("http://") or url.startswith("https://")):
-        st.error("URLは http:// または https:// で始めてください。")
     else:
-        # 履歴更新
+        # URL を補正
+        url = normalize_url(raw_url)
+
+        # 補正結果を軽く表示（デバッグ兼ねて）
+        st.caption(f"実際にアクセスしようとしているURL: {url}")
+
+        # 履歴更新（生の入力文字列を保存しておく）
         hist = st.session_state["url_history"]
-        if url in hist:
-            hist.remove(url)
-        hist.append(url)
+        if raw_url in hist:
+            hist.remove(raw_url)
+        hist.append(raw_url)
         if len(hist) > 5:
             hist.pop(0)
 
         try:
             headers = {"User-Agent": "Mozilla/5.0"}
-            resp = requests.get(normalize_url(url), headers=headers, timeout=10)
+            resp = requests.get(url, headers=headers, timeout=10)
             decoded = resp.content.decode("cp932", errors="replace")
             soup = BeautifulSoup(decoded, "html.parser")
 
@@ -176,7 +217,6 @@ if st.button("読み込む"):
             if all_mode:
                 # 全レス表示モード
                 page_posts = filtered_posts
-                # あまりにも多いと危ないので、HARD_MAX_ALL 件を上限にする
                 if len(page_posts) > HARD_MAX_ALL:
                     st.info(
                         f"全レス表示モードですが、負荷対策のため先頭 {HARD_MAX_ALL} 件までに制限しています。"
@@ -206,13 +246,11 @@ if st.button("読み込む"):
                 st.info("指定された範囲には表示するレスがありませんでした。")
                 st.stop()
 
-            # 実際に表示するHTMLだけ取り出す
             page_posts_html = [html_block for _, html_block in page_posts]
-
             all_posts_html = "\n".join(page_posts_html)
             height = min(5000, 400 + 22 * max(1, len(page_posts_html)))
 
-            # 軽量な HTML 断片だけを埋め込む（フル <html> / <head> は使わない）
+            # 軽量な HTML 断片だけを埋め込む
             components.html(f"""
 <style>
 #aa-root {{
@@ -250,6 +288,14 @@ if st.button("読み込む"):
 """, height=height, scrolling=True)
 
         except requests.exceptions.MissingSchema:
-            st.error("URLが正しくありません。http:// または https:// で始めてください。")
+            st.error(
+                "URLの形式を解釈できませんでした。\n"
+                "http:// または https:// から始まる完全なURL、もしくは ttp:// 形式に近い文字列を入力してください。"
+            )
+        except requests.exceptions.RequestException as e:
+            st.error(
+                f"URLに接続できませんでした: {e}\n"
+                "入力した文字列が実際にウェブ上で開けるURLか確認してみてください。"
+            )
         except Exception as e:
             st.error(f"読み込み中にエラーが発生しました: {str(e)}")
