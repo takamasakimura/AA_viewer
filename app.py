@@ -1,8 +1,9 @@
-# app.py — AA Viewer + Textar-light Webフォント版
+# app.py — AA Viewer + Textar-light Webフォント版 + 簡易フルスクリーンモード
 # ・◆と直後のみ表示フィルタ
 # ・ページ範囲指定 / 全レス表示
 # ・ttp://, yaruo～.html などのURL補正
-# ・Textar-light WebフォントをCSSで直接指定（webfont.jsは使わない）
+# ・Textar-light WebフォントをCSSで直接指定
+# ・横画面向け「簡易全画面モード」でStreamlitのヘッダー類を隠す
 
 import streamlit as st
 import requests
@@ -107,6 +108,37 @@ if "url_history" not in st.session_state:
     st.session_state["url_history"] = []
 
 st.title("AA Viewer（Textar-light 対応）")
+
+# ------------------------------------------------------------
+# 簡易フルスクリーンモード（ヘッダー等を隠す）
+# ------------------------------------------------------------
+
+fullscreen = st.checkbox(
+    "横画面用・簡易全画面モード（Streamlitのヘッダー/フッターを隠す）",
+    value=False,
+    help="ON にするとヘッダーやフッター、ツールバーを隠してAA表示を広くします。",
+)
+
+if fullscreen:
+    # Streamlit のヘッダー / フッター / ツールバーをCSSで非表示
+    st.markdown(
+        """
+<style>
+header[data-testid="stHeader"] {display: none;}
+footer[data-testid="stFooter"] {display: none;}
+div[data-testid="stToolbar"] {display: none;}
+#MainMenu {visibility: hidden;}
+/* 余白を詰めてAAの表示エリアを広げる */
+.block-container {
+  padding-top: 0.2rem;
+  padding-bottom: 0.2rem;
+  padding-left: 0.2rem;
+  padding-right: 0.2rem;
+}
+</style>
+""",
+        unsafe_allow_html=True,
+    )
 
 # ------------------------------------------------------------
 # 上部コントロール
@@ -275,7 +307,10 @@ if st.button("読み込む"):
 
             page_posts_html = [html_block for _, html_block in page_posts]
             all_posts_html = "\n".join(page_posts_html)
-            height = min(5000, 400 + 22 * max(1, len(page_posts_html)))
+
+            # フルスクリーン時はちょっとだけ上限を緩める
+            max_height = 6000 if fullscreen else 5000
+            height = min(max_height, 400 + 22 * max(1, len(page_posts_html)))
 
             # ------------------------------------------------
             # AA 埋め込み用 HTML + CSS（ここでフォント指定）
@@ -288,66 +323,4 @@ if st.button("読み込む"):
   font-style: normal;
   font-weight: normal;
   src: local('Textar'),
-       url('https://marmooo.github.io/fonts/textar-light.woff2') format('woff2'),
-       url('https://marmooo.github.io/fonts/textar-light.woff') format('woff'),
-       url('https://marmooo.github.io/fonts/textar-light.ttf') format('ttf');
-}
-"""
-                font_family_css = "'ＭＳ Ｐゴシック','MS PGothic','梅Pゴシック','Textar',sans-serif"
-            else:
-                font_face_css = ""
-                font_family_css = "'ＭＳ Ｐゴシック','MS PGothic','梅Pゴシック',monospace"
-
-            components.html(
-                f"""
-<style>
-{font_face_css}
-#aa-root {{
-  margin: 0;
-  padding: 5px;
-}}
-#aa-root pre {{
-  font-size: 16px;
-  line-height: 1.1;
-  font-family: {font_family_css};
-  white-space: pre;
-  word-wrap: normal;
-  overflow-x: auto;
-  margin: 0;
-}}
-#aa-root .res-block {{
-  background: transparent;
-  border: none;
-  padding: 0;
-  margin-bottom: 1.2em;
-}}
-#aa-root .res-block.op {{
-  border-left: 4px solid #000;
-  padding-left: 6px;
-}}
-#aa-root .res-block.op-follow {{
-  background: rgba(10,88,202,0.06);
-  border-left: 4px solid #0a58ca;
-  padding-left: 6px;
-}}
-</style>
-<div id="aa-root">
-{all_posts_html}
-</div>
-""",
-                height=height,
-                scrolling=True,
-            )
-
-        except requests.exceptions.MissingSchema:
-            st.error(
-                "URLの形式を解釈できませんでした。\n"
-                "http:// または https:// から始まる完全なURL、もしくは ttp:// 形式に近い文字列を入力してください。"
-            )
-        except requests.exceptions.RequestException as e:
-            st.error(
-                f"URLに接続できませんでした: {e}\n"
-                "入力した文字列が実際にウェブ上で開けるURLか確認してみてください。"
-            )
-        except Exception as e:
-            st.error(f"読み込み中にエラーが発生しました: {str(e)}")
+       url('https
