@@ -1,8 +1,8 @@
-# app.py — AA Viewer + Textar Font 対応版
-# ・やる夫 AA 用 Textar フォント（textar-font-wrapper）に対応
+# app.py — AA Viewer + Textar-light Webフォント版
 # ・◆と直後のみ表示フィルタ
 # ・ページ範囲指定 / 全レス表示
-# ・ttp:// や yaruo～.html もある程度補正して読みに行く
+# ・ttp://, yaruo～.html などのURL補正
+# ・Textar-light WebフォントをCSSで直接指定（webfont.jsは使わない）
 
 import streamlit as st
 import requests
@@ -12,7 +12,7 @@ import re
 import html
 from copy import copy
 
-# 全レスモード時の安全上限（これ以上は自動で切り捨て）
+# 全レスモード時の安全上限
 HARD_MAX_ALL = 3000
 
 # ------------------------------------------------------------
@@ -33,41 +33,39 @@ def strip_controls(s: str) -> str:
 
 def normalize_url(raw: str) -> str:
     """
-    入力された文字列を「requests でアクセス可能な URL」に寄せていく関数。
+    入力文字列を「requestsが解釈できるURL」に寄せる。
 
-    主な補正:
-      - 先頭が ttp:// → http:// に補正
-      - 先頭が ttps:// → https:// に補正
-      - それでも http(s) で始まっていない場合、
-        .html で終わる or '.' を含むなら 'http://' を前に付ける
+    - 先頭 ttp:// → http://
+    - 先頭 ttps:// → https://
+    - それでも http(s) で始まっていない場合、
+      .html で終わる or '.' を含むなら http:// を前に付ける
     """
     u = raw.strip()
 
     # ttp / ttps 補正
     if u.startswith("ttp://"):
-        u = "h" + u           # → http://
+        u = "h" + u          # → http://
     elif u.startswith("ttps://"):
-        u = "h" + u           # → https://
+        u = "h" + u          # → https://
 
-    # すでに http(s) ならそのまま
+    # すでに http(s)
     if re.match(r"^https?://", u, re.IGNORECASE):
         return u
 
-    # .html で終わる or ドメインっぽく '.' を含む → http:// を補ってみる
+    # ドメインぽい / .html で終わる
     if u.endswith(".html") or "." in u:
         return "http://" + u
 
-    # ここまで来たらかなり曖昧なので、そのまま返す
-    # → 後続の requests.get で MissingSchema / InvalidURL になる
+    # それ以外はそのまま返す（後続で MissingSchema などの例外になる）
     return u
 
 # ------------------------------------------------------------
-# Streamlit UI 基本設定
+# Streamlit 基本設定
 # ------------------------------------------------------------
 
 st.set_page_config(layout="wide")
 
-# グローバル CSS（ここではフォントファミリは固定しない）
+# メイン側の軽いCSS（AA本体は iframe 内で別途指定）
 st.markdown(
     """
 <style>
@@ -104,17 +102,17 @@ pre {
     unsafe_allow_html=True,
 )
 
-# 履歴保存
+# 履歴
 if "url_history" not in st.session_state:
     st.session_state["url_history"] = []
 
-st.title("AA Viewer（Textar Font 対応）")
+st.title("AA Viewer（Textar-light 対応）")
 
 # ------------------------------------------------------------
 # 上部コントロール
 # ------------------------------------------------------------
 
-# ◆とその直後のみ表示
+# ◆と直後のみ表示
 filter_mode = st.checkbox("◆と直後のみ表示（雑談を省く）", value=True)
 
 # 1ページあたりのレス数
@@ -126,13 +124,13 @@ page_size = st.number_input(
     step=50,
 )
 
-# 全レス表示モード
+# 全レス表示
 all_mode = st.checkbox(
     "全レス表示（レス数が多いときはスマホで落ちる可能性があります）",
     value=False,
 )
 
-# 範囲指定用の開始レス番号（全レス表示ON時は無視）
+# 範囲指定開始レス（全レス表示ON時は無視）
 start_no = st.number_input(
     "表示開始レス番号（例: 1 → 1～400, 401 → 401～800）※全レス表示ONのときは無視されます",
     min_value=1,
@@ -140,11 +138,11 @@ start_no = st.number_input(
     step=int(page_size),
 )
 
-# Textar フォントを使うかどうか
+# Textar-light Webフォントを使うか
 use_textar_font = st.checkbox(
-    "Textar Font（やる夫 AA 用フォント）を使う",
+    "Textar Webフォント（textar-light）を使う",
     value=True,
-    help="ON にすると textar-font-wrapper の Web フォントを使って AA を表示します。",
+    help="ON: textar-light Webフォントを読み込んでAAを表示（外部サイトのフォントを利用します）",
 )
 
 st.markdown("#### 🔄 過去のURL履歴")
@@ -159,7 +157,7 @@ raw_url_input = st.text_input(
 )
 
 # ------------------------------------------------------------
-# 「読み込む」ボタン押下時の処理
+# 「読み込む」ボタン
 # ------------------------------------------------------------
 
 if st.button("読み込む"):
@@ -168,10 +166,9 @@ if st.button("読み込む"):
     if not raw_url:
         st.warning("URLを入力してください。")
     else:
-        # URL を補正
+        # URL 補正
         url = normalize_url(raw_url)
 
-        # 実際に取りに行く URL を表示
         st.caption(f"実際にアクセスしようとしているURL: {url}")
 
         # 履歴更新（生の入力文字列を保存）
@@ -193,12 +190,14 @@ if st.button("読み込む"):
 
             total_raw = len(dt_blocks)
 
-            # フィルタ後レス（(元レス番号, html文字列)）
             filtered_posts = []
             last_was_op = False
 
+            # ------------------------------------------------
+            # dt/dd からレスを組み立て
+            # ------------------------------------------------
             for idx, (dt, dd) in enumerate(zip(dt_blocks, dd_blocks), start=1):
-                # 見出しテキスト
+                # 見出し
                 dt_text = strip_controls(safe_utf8(dt.get_text(strip=True)))
                 dt_show = html.escape(dt_text, quote=False)
 
@@ -229,14 +228,11 @@ if st.button("読み込む"):
                     color = "#666666"
                     role_class = "other"
 
-                # Textar フォント用クラスを pre につける
-                pre_class = "textar-aa"
-
                 html_block = (
                     f'<div class="res-block {role_class}" id="res{idx}" '
                     f'style="color:{color};">'
                     f"<strong>{dt_show}</strong><br>"
-                    f'<pre class="{pre_class}">{dd_show}</pre></div>'
+                    f"<pre>{dd_show}</pre></div>"
                 )
                 filtered_posts.append((idx, html_block))
 
@@ -247,7 +243,9 @@ if st.button("読み込む"):
             safe_start = int(start_no)
             safe_page = int(page_size)
 
-            # ページング／全レス
+            # ------------------------------------------------
+            # ページング / 全レス
+            # ------------------------------------------------
             if all_mode:
                 page_posts = filtered_posts
                 if len(page_posts) > HARD_MAX_ALL:
@@ -266,7 +264,6 @@ if st.button("読み込む"):
                 ]
                 caption_range = f"{range_start}～{range_end}"
 
-            # 情報表示
             st.caption(
                 f"スレ全体のレス数: {total_raw} / フィルタ後: {len(filtered_posts)} "
                 f"｜ 表示範囲: {caption_range}"
@@ -276,35 +273,45 @@ if st.button("読み込む"):
                 st.info("指定された範囲には表示するレスがありませんでした。")
                 st.stop()
 
-            # HTML 連結
             page_posts_html = [html_block for _, html_block in page_posts]
             all_posts_html = "\n".join(page_posts_html)
             height = min(5000, 400 + 22 * max(1, len(page_posts_html)))
 
-            # Textar フォントの script タグ（ON のときだけ出力）
-            textar_script = ""
+            # ------------------------------------------------
+            # AA 埋め込み用 HTML + CSS（ここでフォント指定）
+            # ------------------------------------------------
             if use_textar_font:
-                # ローカルに textar-font を置いた場合は下の URL を
-                #   "/static/textar-font/webfont.js"
-                # に変える
-                textar_script = (
-                    '<script type="text/javascript" charset="utf-8" '
-                    'src="/static/textar-font/webfont.js"></script>'
-                )
+                # marmooo さんの Textar-light 向けCSSをベースにした設定
+                font_face_css = """
+@font-face {
+  font-family: 'Textar';
+  font-style: normal;
+  font-weight: normal;
+  src: local('Textar'),
+       url('https://marmooo.github.io/fonts/textar-light.woff2') format('woff2'),
+       url('https://marmooo.github.io/fonts/textar-light.woff') format('woff'),
+       url('https://marmooo.github.io/fonts/textar-light.ttf') format('ttf');
+}
+"""
+                font_family_css = "'ＭＳ Ｐゴシック','MS PGothic','梅Pゴシック','Textar',sans-serif"
+            else:
+                font_face_css = ""
+                font_family_css = "'ＭＳ Ｐゴシック','MS PGothic','梅Pゴシック',monospace"
 
-            # 埋め込み HTML
             components.html(
                 f"""
 <style>
+{font_face_css}
 #aa-root {{
   margin: 0;
   padding: 5px;
 }}
 #aa-root pre {{
-  /* フォントファミリは指定しない（Textar 側の .textar-aa に任せる） */
-  font-size: 15px;
-  line-height: 1.15;
+  font-size: 16px;
+  line-height: 1.1;
+  font-family: {font_family_css};
   white-space: pre;
+  word-wrap: normal;
   overflow-x: auto;
   margin: 0;
 }}
@@ -324,7 +331,6 @@ if st.button("読み込む"):
   padding-left: 6px;
 }}
 </style>
-{textar_script}
 <div id="aa-root">
 {all_posts_html}
 </div>
