@@ -1,9 +1,4 @@
-# app.py — AA Viewer + Textar-light Webフォント版 + 簡易フルスクリーンモード
-# ・◆と直後のみ表示フィルタ
-# ・ページ範囲指定 / 全レス表示
-# ・ttp://, yaruo～.html などのURL補正
-# ・Textar-light WebフォントをCSSで直接指定
-# ・横画面向け「簡易全画面モード」でStreamlitのヘッダー類を隠す
+# app.py — AA Viewer + Textar-light Webフォント版 + 疑似フルスクリーン（ヘッダー非表示）
 
 import streamlit as st
 import requests
@@ -22,11 +17,11 @@ HARD_MAX_ALL = 3000
 
 def safe_utf8(s: str) -> str:
     """サロゲートペアの片割れなどを   に置換する"""
-    return re.sub(r'[\ud800-\udfff]', '\uFFFD', s)
+    return re.sub(r"[\ud800-\udfff]", "\uFFFD", s)
 
 def strip_controls(s: str) -> str:
     """制御文字のうち \t \n \r 以外を   に置換する"""
-    return re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F]', '\uFFFD', s)
+    return re.sub(r"[\x00-\x08\x0B-\x0C\x0E-\x1F]", "\uFFFD", s)
 
 # ------------------------------------------------------------
 # URL 補正
@@ -66,10 +61,18 @@ def normalize_url(raw: str) -> str:
 
 st.set_page_config(layout="wide")
 
-# メイン側の軽いCSS（AA本体は iframe 内で別途指定）
-st.markdown(
-    """
+# メイン側のCSS（ヘッダー・フッターを隠して疑似フルスクリーンにする）
+BASE_CSS = """
 <style>
+/* Streamlit標準ヘッダー/フッターを隠して疑似フルスクリーン表示 */
+header {visibility: hidden;}
+footer {visibility: hidden;}
+/* 上部の余白も少し詰める */
+.block-container {
+  padding-top: 0.5rem;
+}
+
+/* ページ全体のデフォルトフォントなど */
 html, body, .stApp {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
                "Helvetica Neue", Arial, sans-serif;
@@ -78,11 +81,13 @@ html, body, .stApp {
   background:#fdfdfd;
   overflow-x:auto;
 }
+
 pre {
   white-space: pre;
   overflow-x: auto;
   margin: 0;
 }
+
 .res-block {
   background: transparent;
   border: none;
@@ -99,46 +104,15 @@ pre {
   padding-left: 6px;
 }
 </style>
-""",
-    unsafe_allow_html=True,
-)
+"""
+
+st.markdown(BASE_CSS, unsafe_allow_html=True)
 
 # 履歴
 if "url_history" not in st.session_state:
     st.session_state["url_history"] = []
 
-st.title("AA Viewer（Textar-light 対応）")
-
-# ------------------------------------------------------------
-# 簡易フルスクリーンモード（ヘッダー等を隠す）
-# ------------------------------------------------------------
-
-fullscreen = st.checkbox(
-    "横画面用・簡易全画面モード（Streamlitのヘッダー/フッターを隠す）",
-    value=False,
-    help="ON にするとヘッダーやフッター、ツールバーを隠してAA表示を広くします。",
-)
-
-if fullscreen:
-    # Streamlit のヘッダー / フッター / ツールバーをCSSで非表示
-    st.markdown(
-        """
-<style>
-header[data-testid="stHeader"] {display: none;}
-footer[data-testid="stFooter"] {display: none;}
-div[data-testid="stToolbar"] {display: none;}
-#MainMenu {visibility: hidden;}
-/* 余白を詰めてAAの表示エリアを広げる */
-.block-container {
-  padding-top: 0.2rem;
-  padding-bottom: 0.2rem;
-  padding-left: 0.2rem;
-  padding-right: 0.2rem;
-}
-</style>
-""",
-        unsafe_allow_html=True,
-    )
+st.title("AA Viewer（Textar-light 対応・フルスクリーン向け）")
 
 # ------------------------------------------------------------
 # 上部コントロール
@@ -303,24 +277,80 @@ if st.button("読み込む"):
 
             if not page_posts:
                 st.info("指定された範囲には表示するレスがありませんでした。")
-                st.stop()
+            else:
+                page_posts_html = [html_block for _, html_block in page_posts]
+                all_posts_html = "\n".join(page_posts_html)
+                height = min(5000, 400 + 22 * max(1, len(page_posts_html)))
 
-            page_posts_html = [html_block for _, html_block in page_posts]
-            all_posts_html = "\n".join(page_posts_html)
+                # ------------------------------------------------
+                # AA 埋め込み用 HTML + CSS（ここでフォント指定）
+                # ------------------------------------------------
+                if use_textar_font:
+                    # Textar-light Webフォント（marmooo さん配布）を使う
+                    font_face_css = (
+                        "@font-face {\n"
+                        "  font-family: 'Textar';\n"
+                        "  font-style: normal;\n"
+                        "  font-weight: normal;\n"
+                        "  src: local('Textar'),\n"
+                        "       url('https://marmooo.github.io/fonts/textar-light.woff2') format('woff2'),\n"
+                        "       url('https://marmooo.github.io/fonts/textar-light.woff') format('woff'),\n"
+                        "       url('https://marmooo.github.io/fonts/textar-light.ttf') format('truetype');\n"
+                        "}\n"
+                    )
+                    font_family_css = "'ＭＳ Ｐゴシック','MS PGothic','梅Pゴシック','Textar',sans-serif"
+                else:
+                    font_face_css = ""
+                    font_family_css = "'ＭＳ Ｐゴシック','MS PGothic','梅Pゴシック',monospace"
 
-            # フルスクリーン時はちょっとだけ上限を緩める
-            max_height = 6000 if fullscreen else 5000
-            height = min(max_height, 400 + 22 * max(1, len(page_posts_html)))
+                iframe_html = f"""
+<style>
+{font_face_css}
+#aa-root {{
+  margin: 0;
+  padding: 5px;
+}}
+#aa-root pre {{
+  font-size: 16px;
+  line-height: 1.1;
+  font-family: {font_family_css};
+  white-space: pre;
+  word-wrap: normal;
+  overflow-x: auto;
+  margin: 0;
+}}
+#aa-root .res-block {{
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin-bottom: 1.2em;
+}}
+#aa-root .res-block.op {{
+  border-left: 4px solid #000;
+  padding-left: 6px;
+}}
+#aa-root .res-block.op-follow {{
+  background: rgba(10,88,202,0.06);
+  border-left: 4px solid #0a58ca;
+  padding-left: 6px;
+}}
+</style>
+<div id="aa-root">
+{all_posts_html}
+</div>
+"""
 
-            # ------------------------------------------------
-            # AA 埋め込み用 HTML + CSS（ここでフォント指定）
-            # ------------------------------------------------
-            if use_textar_font:
-                # marmooo さんの Textar-light 向けCSSをベースにした設定
-                font_face_css = """
-@font-face {
-  font-family: 'Textar';
-  font-style: normal;
-  font-weight: normal;
-  src: local('Textar'),
-       url('https
+                components.html(iframe_html, height=height, scrolling=True)
+
+        except requests.exceptions.MissingSchema:
+            st.error(
+                "URLの形式を解釈できませんでした。\n"
+                "http:// または https:// から始まる完全なURL、もしくは ttp:// 形式に近い文字列を入力してください。"
+            )
+        except requests.exceptions.RequestException as e:
+            st.error(
+                f"URLに接続できませんでした: {e}\n"
+                "入力した文字列が実際にウェブ上で開けるURLか確認してみてください。"
+            )
+        except Exception as e:
+            st.error(f"読み込み中にエラーが発生しました: {str(e)}")
