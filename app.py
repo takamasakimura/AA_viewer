@@ -1,4 +1,4 @@
-# app.py — AA Viewer 軽量版（◆と直後のみ表示オプション付き／モバイル対策）
+# app.py — AA Viewer ページ範囲＋全レス表示モード付き（◆と直後のみ表示／モバイル対策）
 
 import streamlit as st
 import requests
@@ -7,6 +7,9 @@ import streamlit.components.v1 as components
 import re
 import html
 from copy import copy
+
+# 安全側の全レス最大数（全レスモードでもこれ以上は切る）
+HARD_MAX_ALL = 3000
 
 # --- 文字サニタイズ ---
 def safe_utf8(s: str) -> str:
@@ -58,16 +61,30 @@ if "url_history" not in st.session_state:
 
 st.title("AA Viewer")
 
-# フィルタ切り替え
+# ◆と直後のみ表示するか
 filter_mode = st.checkbox("◆と直後のみ表示（雑談を省く）", value=True)
 
-# 最大表示レス数をユーザー側で調整できるようにする
-max_posts = st.number_input(
-    "最大表示レス数（多すぎるとスマホで落ちることがあります）",
+# 1ページあたりのレス数（例: 400）
+page_size = st.number_input(
+    "1ページあたりのレス数（多すぎるとスマホで落ちることがあります）",
     min_value=50,
     max_value=2000,
     value=400,
     step=50,
+)
+
+# 全レス表示モード（PCなどで、負荷を覚悟して全部見たいとき用）
+all_mode = st.checkbox(
+    "全レス表示（レス数が多いときはスマホで落ちる可能性があります）",
+    value=False,
+)
+
+# 開始レス番号（1～）を指定
+start_no = st.number_input(
+    "表示開始レス番号（例: 1 → 1～400, 401 → 401～800）※全レス表示ONのときは無視されます",
+    min_value=1,
+    value=1,
+    step=int(page_size),
 )
 
 st.markdown("#### 🔄 過去のURL履歴")
@@ -104,7 +121,10 @@ if st.button("読み込む"):
             dt_blocks = soup.find_all("dt")
             dd_blocks = soup.find_all("dd")
 
-            posts = []
+            total_raw = len(dt_blocks)
+
+            # フィルタ済みレス一覧（(元レス番号, html文字列) のタプル）
+            filtered_posts = []
             last_was_op = False
 
             for idx, (dt, dd) in enumerate(zip(dt_blocks, dd_blocks), start=1):
@@ -139,24 +159,58 @@ if st.button("読み込む"):
                     color = "#666"
                     role_class = "other"
 
-                posts.append(
+                html_block = (
                     f'<div class="res-block {role_class}" id="res{idx}" '
                     f'style="color:{color};">'
                     f"<strong>{dt_show}</strong><br><pre>{dd_show}</pre></div>"
                 )
+                filtered_posts.append((idx, html_block))
 
-            if len(posts) == 0:
+            if len(filtered_posts) == 0:
                 st.info("条件に合致するレスがありませんでした。フィルタ設定を確認してください。")
                 st.stop()
 
-            # レス数が多すぎる場合は先頭 max_posts 件だけに制限
-            safe_max = int(max_posts)
-            if len(posts) > safe_max:
-                st.info(f"レス数が多いため、先頭 {safe_max} 件まで表示しています。")
-                posts = posts[:safe_max]
+            safe_start = int(start_no)
+            safe_page = int(page_size)
 
-            all_posts_html = "\n".join(posts)
-            height = min(5000, 400 + 22 * max(1, len(posts)))
+            if all_mode:
+                # 全レス表示モード
+                page_posts = filtered_posts
+                # あまりにも多いと危ないので、HARD_MAX_ALL 件を上限にする
+                if len(page_posts) > HARD_MAX_ALL:
+                    st.info(
+                        f"全レス表示モードですが、負荷対策のため先頭 {HARD_MAX_ALL} 件までに制限しています。"
+                    )
+                    page_posts = page_posts[:HARD_MAX_ALL]
+
+                caption_range = "全レス表示"
+            else:
+                # 範囲指定モード
+                range_start = safe_start
+                range_end = safe_start + safe_page - 1
+
+                page_posts = [
+                    (idx, html_block)
+                    for idx, html_block in filtered_posts
+                    if range_start <= idx <= range_end
+                ]
+                caption_range = f"{range_start}～{range_end}"
+
+            # 情報表示（全体とフィルタ後の件数）
+            st.caption(
+                f"スレ全体のレス数: {total_raw} / フィルタ後: {len(filtered_posts)} "
+                f"｜ 表示範囲: {caption_range}"
+            )
+
+            if not page_posts:
+                st.info("指定された範囲には表示するレスがありませんでした。")
+                st.stop()
+
+            # 実際に表示するHTMLだけ取り出す
+            page_posts_html = [html_block for _, html_block in page_posts]
+
+            all_posts_html = "\n".join(page_posts_html)
+            height = min(5000, 400 + 22 * max(1, len(page_posts_html)))
 
             # 軽量な HTML 断片だけを埋め込む（フル <html> / <head> は使わない）
             components.html(f"""
